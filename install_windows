@@ -18,7 +18,7 @@ set GITHUB_USER=DukeeTheProgrammer
 set GITHUB_REPO=sysmon
 set GITHUB_BRANCH=master
 set BASE_URL=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%GITHUB_BRANCH%
-set AGENT_URL=%BASE_URL%/agent_windows.zip
+set AGENT_URL=%BASE_URL%/build/agent_windows.zip
 
 REM Detect Python
 echo [INFO] Detecting Python...
