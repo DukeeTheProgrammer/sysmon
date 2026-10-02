@@ -1,0 +1,21 @@
+# System Monitor Application Requirements
+# Cross-platform: Windows, Linux, macOS
+
+# Core framework
+flask>=2.0.0
+flask-socketio>=5.0.0
+python-socketio>=5.0.0
+python-engineio>=4.0.0
+
+# HTTP requests
+requests>=2.28.0
+
+# Screen capture (all platforms)
+mss>=9.0.0
+pillow>=10.0.0
+
+# Mouse/keyboard control
+pyautogui>=0.9.53    # Windows primary, macOS fallback
+
+# Linux-specific (optional)
+evdev>=1.7.0         # Linux input monitoring (requires kernel headers)
