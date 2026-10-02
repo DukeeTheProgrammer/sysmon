@@ -220,26 +220,86 @@ class RemoteScreen:
                 time.sleep(1)
                 
     def _capture_screen(self):
-        """Capture current screen"""
+        """Capture current screen - Cross-platform with Wayland support"""
         try:
-            if MSS_AVAILABLE:
-                with mss.mss() as sct:
-                    # Get primary monitor (index 1) or all monitors (index 0)
-                    monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
-                    screenshot = sct.grab(monitor)
+            # Check if running on Wayland
+            import os
+            is_wayland = os.environ.get('XDG_SESSION_TYPE') == 'wayland'
+            
+            # Method 1: Try pyautogui (works on most systems)
+            if PYAUTOGUI_AVAILABLE:
+                try:
+                    import pyautogui
+                    import tempfile
                     
-                    # Convert to JPEG with good quality for live feed
-                    img = Image.frombytes('RGB', screenshot.size, screenshot.bgra, 'raw', 'BGRX')
-                    buffer = io.BytesIO()
-                    img.save(buffer, format='JPEG', quality=85)
-                    return buffer.getvalue()
-            else:
-                # Fallback: use ImageMagick import command
-                subprocess.run(['import', '-quiet', '/tmp/opencode/screen.png'], 
-                             capture_output=True, timeout=5)
-                if os.path.exists('/tmp/opencode/screen.png'):
-                    with open('/tmp/opencode/screen.png', 'rb') as f:
-                        return f.read()
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                        temp_file = f.name
+                    
+                    screenshot = pyautogui.screenshot()
+                    screenshot.save(temp_file)
+                    
+                    if os.path.exists(temp_file):
+                        with open(temp_file, 'rb') as f:
+                            screenshot_data = f.read()
+                        os.unlink(temp_file)
+                        
+                        # Convert to JPEG
+                        img = Image.open(io.BytesIO(screenshot_data))
+                        buffer = io.BytesIO()
+                        img.save(buffer, format='JPEG', quality=85)
+                        return buffer.getvalue()
+                except Exception as e:
+                    print(f"[*] pyautogui capture failed: {e}")
+            
+            # Method 2: Try ImageMagick import (works on X11)
+            if self._check_tool('import'):
+                try:
+                    import subprocess
+                    import tempfile
+                    
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                        temp_file = f.name
+                    
+                    # Capture using import (ImageMagick)
+                    subprocess.run(['import', '-window', 'root', temp_file], 
+                                 capture_output=True, timeout=5)
+                    
+                    if os.path.exists(temp_file) and os.path.getsize(temp_file) > 0:
+                        with open(temp_file, 'rb') as f:
+                            screenshot_data = f.read()
+                        os.unlink(temp_file)
+                        
+                        # Convert to JPEG
+                        img = Image.open(io.BytesIO(screenshot_data))
+                        buffer = io.BytesIO()
+                        img.save(buffer, format='JPEG', quality=85)
+                        return buffer.getvalue()
+                except Exception as e:
+                    print(f"[*] ImageMagick capture failed: {e}")
+            
+            # Method 3: Fallback to mss (works on X11)
+            if MSS_AVAILABLE:
+                try:
+                    with mss.mss() as sct:
+                        # Get primary monitor (index 1) or all monitors (index 0)
+                        monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
+                        screenshot = sct.grab(monitor)
+                        
+                        # Convert to JPEG with good quality for live feed
+                        img = Image.frombytes('RGB', screenshot.size, screenshot.bgra, 'raw', 'BGRX')
+                        buffer = io.BytesIO()
+                        img.save(buffer, format='JPEG', quality=85)
+                        return buffer.getvalue()
+                except Exception as e:
+                    print(f"[*] mss capture failed: {e}")
+            
+            # Method 4: Try scrot (Linux)
+            if self._check_tool('scrot'):
+                try:
+                    subprocess.run(['scrot', '-o'], capture_output=True, timeout=5, text=True)
+                except:
+                    pass
+                        
         except Exception as e:
             print(f"[-] Screen capture failed: {e}")
         return None
