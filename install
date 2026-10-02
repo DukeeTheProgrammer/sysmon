@@ -102,17 +102,24 @@ AGENT_DIR="$INSTALL_DIR/agent"
 
 mkdir -p "$INSTALL_DIR"
 
-if [ -f "$AGENT_URL" ]; then
-    # Download the agent tarball
-    if command -v wget &> /dev/null; then
-        wget -q --show-progress "$AGENT_URL" -O "$INSTALL_DIR/agent.tar.gz"
-    elif command -v curl &> /dev/null; then
-        curl -sL "$AGENT_URL" -o "$INSTALL_DIR/agent.tar.gz"
-    else
-        print_error "Neither wget nor curl found!"
-        exit 1
+# Try to download the agent tarball
+DOWNLOAD_SUCCESS=false
+
+if command -v wget &> /dev/null; then
+    if wget -q --timeout=10 "$AGENT_URL" -O "$INSTALL_DIR/agent.tar.gz" 2>/dev/null; then
+        if [ -s "$INSTALL_DIR/agent.tar.gz" ]; then
+            DOWNLOAD_SUCCESS=true
+        fi
     fi
-    
+elif command -v curl &> /dev/null; then
+    if curl -sL --connect-timeout 10 "$AGENT_URL" -o "$INSTALL_DIR/agent.tar.gz" 2>/dev/null; then
+        if [ -s "$INSTALL_DIR/agent.tar.gz" ]; then
+            DOWNLOAD_SUCCESS=true
+        fi
+    fi
+fi
+
+if [ "$DOWNLOAD_SUCCESS" = true ]; then
     # Extract
     print_info "Extracting agent..."
     tar -xzf "$INSTALL_DIR/agent.tar.gz" -C "$INSTALL_DIR/"
@@ -127,9 +134,12 @@ else
     
     if [ -d "rat" ]; then
         print_success "Found local rat folder, using that instead"
-        cp -r rat "$AGENT_DIR"
+        # Copy without .git and other unnecessary files
+        cp -r --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='build' --exclude='rat_config.db' \
+            rat "$AGENT_DIR"
     else
         print_error "No local rat folder and could not download!"
+        print_info "Please run this from the rat folder or check your internet connection"
         exit 1
     fi
 fi

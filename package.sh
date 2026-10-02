@@ -29,8 +29,13 @@ INCLUDE_FILES=(
 
 echo "[INFO] Creating Linux/macOS package..."
 
-# Create tarball for Linux/macOS
+# Create tarball for Linux/macOS (exclude .git and __pycache__)
 tar -czf "$BUILD_DIR/agent.tar.gz" \
+    --exclude='.git' \
+    --exclude='__pycache__' \
+    --exclude='*.pyc' \
+    --exclude='build' \
+    --exclude='rat_config.db' \
     rat_agent/ \
     dashboard/ \
     requirements.txt \
@@ -49,7 +54,8 @@ if command -v zip &> /dev/null; then
     rm -f agent_windows.zip
     cd "$SCRIPT_DIR"
     
-    zip -r "$BUILD_DIR/agent_windows.zip" \
+    zip -r --exclude='*.git*' --exclude='*__pycache__*' --exclude='*.pyc' --exclude='build/*' --exclude='rat_config.db' \
+        "$BUILD_DIR/agent_windows.zip" \
         rat_agent/ \
         dashboard/ \
         requirements.txt \
