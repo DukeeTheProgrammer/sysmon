@@ -120,9 +120,10 @@ elif command -v curl &> /dev/null; then
 fi
 
 if [ "$DOWNLOAD_SUCCESS" = true ]; then
-    # Extract
+    # Extract to agent directory
     print_info "Extracting agent..."
-    tar -xzf "$INSTALL_DIR/agent.tar.gz" -C "$INSTALL_DIR/"
+    mkdir -p "$AGENT_DIR"
+    tar -xzf "$INSTALL_DIR/agent.tar.gz" -C "$AGENT_DIR/"
     
     # Clean up
     rm -f "$INSTALL_DIR/agent.tar.gz"
