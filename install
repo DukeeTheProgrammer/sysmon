@@ -201,7 +201,7 @@ print_info "Configuring auto-start..."
 
 if [[ "$OS" == "debian" || "$OS" == "redhat" || "$OS" == "arch" ]]; then
     # Linux: Use cron
-    CRON_LINE="@reboot cd $AGENT_DIR && nohup $PYTHON_CMD rat_agent/agent.py >> /tmp/sysmon_agent.log 2>&1 & sleep 5 && nohup $PYTHON_CMD dashboard/app.py >> /tmp/sysmon_dashboard.log 2>&1 &"
+    CRON_LINE="@reboot cd $AGENT_DIR && nohup $PYTHON_CMD rat_agent/agent.py >> /tmp/sysmon_agent.log 2>&1 & sleep 3 && cd $AGENT_DIR && nohup $PYTHON_CMD dashboard/app.py >> /tmp/sysmon_dashboard.log 2>&1 &"
     
     # Remove old entries
     (crontab -l 2>/dev/null | grep -v "sysmon") | crontab - 2>/dev/null || true
